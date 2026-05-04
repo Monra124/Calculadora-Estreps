@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
  <style>
 .virtual-keyboard {
     position: fixed;
@@ -131,7 +131,9 @@
     .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 1000; }
     .toast { background: var(--card-bg); border-left: 4px solid var(--primary); padding: 12px 20px; border-radius: 8px; box-shadow: var(--shadow); margin-top: 10px; animation: slideIn 0.3s ease; }
     @media (max-width: 768px) { .split-view { grid-template-columns: 1fr; } .machine-grid { grid-template-columns: 1fr; } .mode-selector { grid-template-columns: 1fr; } }
-  </style>
+    .diam-btn-long { padding: 10px; border: 2px solid var(--border); border-radius: 10px; background: var(--input-bg); color: var(--text-main); font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .diam-btn-long.active { border-color: var(--secondary); background: var(--secondary); color: white; }
+ </style>
 </head>
 <body>
 
@@ -170,12 +172,23 @@
             <span id="txt-stirrup-title">Calculadora Estreps</span>
           </div>
         </div>
-        <div class="diameter-selector">
-          <button class="diam-btn active" onclick="setDiameter('4.2')">Ø4.2</button>
-          <button class="diam-btn" onclick="setDiameter('5')">Ø5</button>
-          <button class="diam-btn" onclick="setDiameter('6')">Ø6</button>
-          <button class="diam-btn" onclick="setDiameter('8')">Ø8</button>
-        </div>
+     <!-- Selector Diàmetre Estrep -->
+<div class="diameter-selector">
+  <span class="form-label" style="grid-column: 1 / -1; margin-bottom: 5px; text-align: left;" id="label-diam-estrep">Selecciona el material per l'estrep:</span>
+  <button class="diam-btn active" onclick="setDiameter('4.2')">Ø4.2</button>
+  <button class="diam-btn" onclick="setDiameter('5')">Ø5</button>
+  <button class="diam-btn" onclick="setDiameter('6')">Ø6</button>
+  <button class="diam-btn" onclick="setDiameter('8')">Ø8</button>
+</div>
+
+<!-- Selector Diàmetre Varilla Longitudinal -->
+<div class="diameter-selector" style="margin-bottom: 20px;">
+  <span class="form-label" style="grid-column: 1 / -1; margin-bottom: 5px; text-align: left;" id="label-diam-long">Diàmetre Varilla Longitudinal:</span>
+  <button class="diam-btn-long active" onclick="setLongDiameter('6')">Ø6</button>
+  <button class="diam-btn-long" onclick="setLongDiameter('8')">Ø8</button>
+  <button class="diam-btn-long" onclick="setLongDiameter('10')">Ø10</button>
+  <button class="diam-btn-long" onclick="setLongDiameter('12')">Ø12</button>
+</div>
         <div class="ref-img-container">
           <img src="image/estrep.png" id="img-estrep-ref" alt="Referència Estrep" onerror="this.parentElement.innerHTML='<div style=\'padding:20px; color:var(--text-sec)\'>📐 Imatge de referència</div>'">
           <div class="img-legend">
@@ -198,7 +211,15 @@
           <label class="form-label" id="label-legs">Potes L (mm)</label>
           <div class="input-wrapper"><input type="number" class="form-input" id="input-legs" value="50"><span class="input-badge badge-L">L</span></div>
         </div>
-              
+       <div class="machine-section" style="margin-top: 20px;">
+    <div style="font-weight: 700; margin-bottom: 10px; color: var(--primary); font-size:14px;" id="txt-prod-params">⚙️ Dades de Producció (Manual)</div>
+    <div class="input-grid" style="display: grid; grid-template-columns: 1fr; gap: 10px;"> <!-- He canviat a 1fr perquè només hi ha un camp -->
+        <div class="form-group">
+            <label class="form-label" id="label-speed">Velocitat</label>
+            <input type="text" class="form-input" id="input-speed" placeholder="Ex: 2000 soldadura /h">
+        </div>
+    </div>
+</div>
         <button class="btn btn-primary" onclick="calculateStirrup()"><span>🔢</span> <span id="txt-calculate">CALCULAR</span></button>
         
         <div class="results-section" id="stirrup-results" style="display:none;">
@@ -306,7 +327,8 @@
     // =========================================================================
     let state = { 
       lang: 'ca', 
-      diameter: '4.2', 
+      diameter: '4.2',
+      longDiameter: '6', 
       darkMode: true, 
       zunxoMode: 'length', 
       stirrupResults: null, 
@@ -316,7 +338,7 @@
         var activeInput = null; 
     }
 
-        const formulas = {
+       const formulas = {
   '4.2': { 
     linearDev: (w,h,l) => 2*(w+h) + 2*l - 10, 
     taglioA: (w,h,l) => (w + w/2) + h + l - 8, 
@@ -324,7 +346,8 @@
     gruppoC: (w,h,l) => h + w - 114, 
     gruppoD: (w,h,l) => h - 77, 
     transfer: (w,h,l) => (w - 80) / 2,
-    pinces: (w,h,l) => w + 52 
+    pinces: (w,h,l) => w + 52,
+    centradorL: (w,h,l) => h - 200 
   },
   '5': { 
     linearDev: (w,h,l) => 2*(w+h) + 2*l - 20, 
@@ -333,7 +356,8 @@
     gruppoC: (w,h,l) => h + w - 115, 
     gruppoD: (w,h,l) => h - 76, 
     transfer: (w,h,l) => (w - 80) / 2,
-    pinces: (w,h,l) => w + 50 
+    pinces: (w,h,l) => w + 50,
+    centradorL: (w,h,l) => h - 200 
   },
   '6': { 
     linearDev: (w,h,l) => 2*(w+h) + 2*l - 0, 
@@ -342,7 +366,8 @@
     gruppoC: (w,h,l) => h + w - 116, 
     gruppoD: (w,h,l) => h - 78, 
     transfer: (w,h,l) => (w - 80) / 2,
-    pinces: (w,h,l) => w + 48
+    pinces: (w,h,l) => w + 48,
+    centradorL: (w,h,l) => h - 200 
   },
   '8': { 
     linearDev: (w,h,l) => 2*(w+h) + 2*l - 5, 
@@ -351,20 +376,49 @@
     gruppoC: (w,h,l) => h + w - 122, 
     gruppoD: (w,h,l) => h - 78, 
     transfer: (w,h,l) => (w - 80) / 2,
-    pinces: (w,h,l) => w + 48
+    pinces: (w,h,l) => w + 48,
+    centradorL: (w,h,l) => h - 200 
   }
 };
 
+const translations = {
+  ca: { 
+    stirrupTitle: "Calculadora Estreps", zunxoTitle: "Calculadora Zunxo", labelWidth: "Amplada W (mm)", labelHeight: "Alt H (mm)", labelLegs: "Potes L (mm)", calculate: "CALCULAR", machines: "⚙️ Paràmetres de Màquina", linearDev: "Desenvolupament Lineal", taglioA: "Tall A", guidaFilo: "Guia Fil", cvl: "Centrador varilles longitudinals", vSucc: "✅ CORRECTE! La suma coincide", vErr: "❌ INCORRECTE! Diferència: ", missing: " (Falta)", extra: " (Sobra)", labelDiamEstrep: "Selecciona el material per l'estrep:", labelDiamLong: "Diàmetre Varilla Longitudinal:",
+    prodParams: "⚙️ Dades de Producció", labelModel: "Model", labelSpeed: "Velocitat", 
+    zunxoReport: "REPORT TÈCNIC DE ZUNXO", pdfDate: "Data", pdfTotal: "Llargada Total", pdfTips: "Puntes", pdfSteps: "DETALL DE PASSOS" 
+  },
+  en: { 
+    stirrupTitle: "Stirrup Calculator", zunxoTitle: "Coil Calculator", labelWidth: "Width W (mm)", labelHeight: "Height H (mm)", labelLegs: "Legs L (mm)", calculate: "CALCULATE", machines: "⚙️ Machine Parameters", linearDev: "Linear Development", taglioA: "Cut A", guidaFilo: "Wire Guide", cvl: "Longitudinal bar centerer", vSucc: "✅ CORRECT! Sum matches", vErr: "❌ INCORRECT! Difference: ", missing: " (Missing)", extra: " (Extra)", labelDiamEstrep: "Select the stirrup material:", labelDiamLong: "Longitudinal bar diameter:",
+    prodParams: "⚙️ Production Data", labelModel: "Model", labelSpeed: "Speed", 
+    zunxoReport: "TECHNICAL COIL REPORT", pdfDate: "Date", pdfTotal: "Total Length", pdfTips: "Tips", pdfSteps: "STEP DETAILS" 
+  },
+  es: { 
+    stirrupTitle: "Calculadora Estribos", zunxoTitle: "Calculadora Zunchos", labelWidth: "Anchura W (mm)", labelHeight: "Altura H (mm)", labelLegs: "Patas L (mm)", calculate: "CALCULAR", machines: "⚙️ Parámetros de Máquina", linearDev: "Desarrollo Lineal", taglioA: "Corte A", guidaFilo: "Guía Hilo", cvl: "Centrador de varillas longitudinales", vSucc: "✅ CORRECTO! La suma coincide", vErr: "❌ INCORRECTO! Diferencia: ", missing: " (Falta)", extra: " (Sobra)", labelDiamEstrep: "Selecciona el material para el estribo:", labelDiamLong: "Diámetro Varilla Longitudinal:",
+    prodParams: "⚙️ Datos de Producción", labelModel: "Modelo", labelSpeed: "Velocidad", 
+    zunxoReport: "REPORTE TÉCNICO DE ZUNCHOS", pdfDate: "Fecha", pdfTotal: "Longitud Total", pdfTips: "Puntas", pdfSteps: "DETALLE DE PASOS" 
+  },
+  it: { 
+    stirrupTitle: "Calcolatrice Staffe", zunxoTitle: "Calculadora Zunxo", labelWidth: "Larghezza W (mm)", labelHeight: "Altezza H (mm)", labelLegs: "Gancio L (mm)", calculate: "CALCOLARE", machines: "⚙️ Parametri Macchina", linearDev: "Sviluppo Lineare", taglioA: "Taglio A", guidaFilo: "Guida Filo", cvl: "Centratore barre longitudinali", vSucc: "✅ CORRETTO! La somma corrisponde", vErr: "❌ ERRATO! Differenza: ", missing: " (Manca)", extra: " (Avanza)", labelDiamEstrep: "Seleziona il materiale per la staffa:", labelDiamLong: "Diametro Barre Longitudinali:",
+    prodParams: "⚙️ Dati di Produzione", labelModel: "Modello", labelSpeed: "Velocità", 
+    zunxoReport: "RAPPORTO TECNICO DI ZUNXO", pdfDate: "Data", pdfTotal: "Lunghezza Totale", pdfTips: "Ganci", pdfSteps: "DETTAGLIO PASSI" 
+  },
+  fr: { 
+    stirrupTitle: "Calculatrice d'Étriers", zunxoTitle: "Calculadora Zunxo", labelWidth: "Largeur W (mm)", labelHeight: "Hauteur H (mm)", labelLegs: "Pattes L (mm)", calculate: "CALCULER", machines: "⚙️ Paramètres Machine", linearDev: "Développement Linéaire", taglioA: "Coupe A", guidaFilo: "Guide Fil", cvl: "Centreur de barres longitudinales", vSucc: "✅ CORRECT ! La somme correspond", vErr: "❌ INCORRECT ! Différence : ", missing: " (Manque)", extra: " (Excédent)", labelDiamEstrep: "Sélectionnez le matériau pour l'étrier:", labelDiamLong: "Diamètre Barres Longitudinales:",
+    prodParams: "⚙️ Données de Production", labelModel: "Modèle", labelSpeed: "Vitesse", 
+    zunxoReport: "RAPPORT TECHNIQUE D'ÉTRIERS", pdfDate: "Date", pdfTotal: "Longueur Totale", pdfTips: "Pattes", pdfSteps: "DÉTAIL DES ÉTAPES" 
+  },
+  pl: { 
+    stirrupTitle: "Kalkulator Strzemion", zunxoTitle: "Calculadora Zunxo", labelWidth: "Szerokość W (mm)", labelHeight: "Wysokość H (mm)", labelLegs: "Nogi L (mm)", calculate: "OBLICZ", machines: "⚙️ Parametry Maszyny", linearDev: "Rozwinięcie Liniowe", taglioA: "Cięcie A", guidaFilo: "Prowadnica Drutu", cvl: "Centrowanie prętów podłużnych", vSucc: "✅ POPRAWNIE! Suma się zgadza", vErr: "❌ BŁĄD! Różnica: ", missing: " (Brak)", extra: " (Nadmiar)", labelDiamEstrep: "Wybierz materiały na strzemiona:", labelDiamLong: "Średnica prętów podłużnych:",
+    prodParams: "⚙️ Dane Produkcyjne", labelModel: "Model", labelSpeed: "Prędkość", 
+    zunxoReport: "TECHNICZNY RAPORT ZUNXO", pdfDate: "Data", pdfTotal: "Całkowita Długość", pdfTips: "Końcówki", pdfSteps: "SZCZEGÓŁY KROKÓW" 
+  },
+  ro: { 
+    stirrupTitle: "Calculator Etrieri", zunxoTitle: "Calculadora Zunxo", labelWidth: "Lățime W (mm)", labelHeight: "Înălțime H (mm)", labelLegs: "Picioare L (mm)", calculate: "CALCULEAZĂ", machines: "⚙️ Parametri Mașină", linearDev: "Dezvoltare Liniară", taglioA: "Tăiere A", guidaFilo: "Ghid Fir", cvl: "Centrator bare longitudinale", vSucc: "✅ CORECT! Suma se potrivește", vErr: "❌ INCORECT! Diferență: ", missing: " (Lipsește)", extra: " (Excedent)", labelDiamEstrep: "Selectați materialul pentru etrier:", labelDiamLong: "Diametru Bare Longitudinale:",
+    prodParams: "⚙️ Date de Producție", labelModel: "Model", labelSpeed: "Viteză", 
+    zunxoReport: "RAPORT TEHNIC ZUNXO", pdfDate: "Data", pdfTotal: "Lungime Totală", pdfTips: "Capete", pdfSteps: "DETALII PAȘI" 
+  }
+};
 
-    const translations = {
-      ca: { stirrupTitle: "Calculadora Estreps", zunxoTitle: "Calculadora Zunxo", labelWidth: "Amplada W (mm)", labelHeight: "Alt H (mm)", labelLegs: "Potes L (mm)", calculate: "CALCULAR", machines: "⚙️ Paràmetres de Màquina", linearDev: "Desenvolupament Lineal", taglioA: "Tall A", guidaFilo: "Guia Fil", vSucc: "✅ CORRECTE! La suma coincide", vErr: "❌ INCORRECTE! Diferència: ", missing: " (Falta)", extra: " (Sobra)" },
-      en: { stirrupTitle: "Stirrup Calculator", zunxoTitle: "Coil Calculator", labelWidth: "Width W (mm)", labelHeight: "Height H (mm)", labelLegs: "Legs L (mm)", calculate: "CALCULATE", machines: "⚙️ Machine Parameters", linearDev: "Linear Development", taglioA: "Cut A", guidaFilo: "Wire Guide", vSucc: "✅ CORRECT! Sum matches", vErr: "❌ INCORRECT! Difference: ", missing: " (Missing)", extra: " (Extra)" },
-      es: { stirrupTitle: "Calculadora Estribos", zunxoTitle: "Calculadora Zunchos", labelWidth: "Anchura W (mm)", labelHeight: "Altura H (mm)", labelLegs: "Patas L (mm)", calculate: "CALCULAR", machines: "⚙️ Parámetros de Máquina", linearDev: "Desarrollo Lineal", taglioA: "Corte A", guidaFilo: "Guía Hilo", vSucc: "✅ CORRECTO! La suma coincide", vErr: "❌ INCORRECTO! Diferencia: ", missing: " (Falta)", extra: " (Sobra)" },
-      it: { stirrupTitle: "Calcolatrice Staffe", zunxoTitle: "Calculadora Zunxo", labelWidth: "Larghezza W (mm)", labelHeight: "Altezza H (mm)", labelLegs: "Gancio L (mm)", calculate: "CALCOLARE", machines: "⚙️ Parametri Macchina", linearDev: "Sviluppo Lineare", taglioA: "Taglio A", guidaFilo: "Guida Filo", vSucc: "✅ CORRETTO! La somma corrisponde", vErr: "❌ ERRATO! Differenza: ", missing: " (Manca)", extra: " (Avanza)" },
-      fr: { stirrupTitle: "Calculatrice d'Étriers", zunxoTitle: "Calculadora Zunxo", labelWidth: "Largeur W (mm)", labelHeight: "Hauteur H (mm)", labelLegs: "Pattes L (mm)", calculate: "CALCULER", machines: "⚙️ Paramètres Machine", linearDev: "Développement Linéaire", taglioA: "Coupe A", guidaFilo: "Guide Fil", vSucc: "✅ CORRECT ! La somme correspond", vErr: "❌ INCORRECT ! Différence : ", missing: " (Manque)", extra: " (Excédent)" },
-      pl: { stirrupTitle: "Kalkulator Strzemion", zunxoTitle: "Calculadora Zunxo", labelWidth: "Szerokość W (mm)", labelHeight: "Wysokość H (mm)", labelLegs: "Nogi L (mm)", calculate: "OBLICZ", machines: "⚙️ Parametry Maszyny", linearDev: "Rozwinięcie Liniowe", taglioA: "Cięcie A", guidaFilo: "Prowadnica Drutu", vSucc: "✅ POPRAWNIE! Suma się zgadza", vErr: "❌ BŁĄD! Różnica: ", missing: " (Brak)", extra: " (Nadmiar)" },
-      ro: { stirrupTitle: "Calculator Etrieri", zunxoTitle: "Calculadora Zunxo", labelWidth: "Lățime W (mm)", labelHeight: "Înălțime H (mm)", labelLegs: "Picioare L (mm)", calculate: "CALCULEAZĂ", machines: "⚙️ Parametri Mașină", linearDev: "Dezvoltare Liniară", taglioA: "Tăiere A", guidaFilo: "Ghid Fir", vSucc: "✅ CORECT! Suma se potrivește", vErr: "❌ INCORECT! Diferență: ", missing: " (Lipsește)", extra: " (Excedent)" }
-    };
 
     document.addEventListener('DOMContentLoaded', () => { 
       createZunxoRows(); 
@@ -385,84 +439,118 @@
       document.getElementById('page-lang').style.display = 'none';
       document.getElementById('split-view').classList.add('active');
     }
-
+      // Creem una llista de tots els IDs i els seus textos corresponents
     function updateTexts() {
       const t = translations[state.lang] || translations['ca'];
-      document.getElementById('txt-stirrup-title').textContent = t.stirrupTitle;
-      document.getElementById('txt-zunxo-title').textContent = t.zunxoTitle;
-      document.getElementById('label-width').textContent = t.labelWidth;
-      document.getElementById('label-height').textContent = t.labelHeight;
-      document.getElementById('label-legs').textContent = t.labelLegs;
-      document.getElementById('txt-calculate').textContent = t.calculate;
-      document.getElementById('txt-machines').textContent = t.machines;
+      
+      const mappings = {
+        'txt-stirrup-title': t.stirrupTitle,
+        'txt-zunxo-title': t.zunxoTitle,
+        'label-width': t.labelWidth,
+        'label-height': t.labelHeight,
+        'label-legs': t.labelLegs,
+        'txt-calculate': t.calculate,
+        'txt-machines': t.machines,
+        'txt-prod-params': t.prodParams,
+        'label-model': t.labelModel,
+        'label-speed': t.labelSpeed,
+        'label-diam-estrep': t.labelDiamEstrep, // Traducció selector Estrep
+        'label-diam-long': t.labelDiamLong     // Traducció selector Varilla Long.
+      };
+
+      for (let id in mappings) {
+        const element = document.getElementById(id);
+        if (element) {
+          element.textContent = mappings[id];
+        }
+      }
     }
+
 
     function setDiameter(diam) {
       state.diameter = diam;
       document.querySelectorAll('.diam-btn').forEach(btn => btn.classList.remove('active'));
       event.target.classList.add('active');
     }
-
-   function calculateStirrup() {
-    const w = parseFloat(document.getElementById('input-width').value);
-    const h = parseFloat(document.getElementById('input-height').value);
-    const l = parseFloat(document.getElementById('input-legs').value);
-
-    if (isNaN(w) || isNaN(h) || isNaN(l)) { 
-        showToast('Introdueix tots els valors', 'error'); 
-        return; 
-    }
-
-    const f = formulas[state.diameter];
-    if (!f) {
-        showToast('Error en la fórmula del diàmetre', 'error');
-        return;
-    }
-
-    // Guardem totes les dades, incloses les mides originals w, h, l
-    const res = { 
-        w: w,
-        h: h,
-        l: l,
-        linearDev: f.linearDev(w,h,l), 
-        taglioA: f.taglioA(w,h,l), 
-        guidaFilo: f.guidaFilo(w,h,l), 
-        gruppoC: f.gruppoC(w,h,l), 
-        gruppoD: f.gruppoD(w,h,l), 
-        transfer: f.transfer(w,h,l),
-        pinces: f.pinces(w,h,l) 
-    };
-
-    // Guardar resultats a l'estat global per al PDF
-    state.stirrupResults = res;
-
-    // Mostrar resultats a la pantalla
-    const lang = state.lang || 'ca';
-    document.getElementById('results-list').innerHTML = `
-        <div class="res-item"><span>${translations[lang].linearDev}:</span> <strong>${res.linearDev.toFixed(2)} mm</strong></div>
-        <div class="res-item"><span>${translations[lang].taglioA}:</span> <strong>${res.taglioA.toFixed(2)} mm</strong></div>
-        <div class="res-item"><span>${translations[lang].guidaFilo}:</span> <strong>${res.guidaFilo.toFixed(1)}</strong></div>
-    `;
-
-       // Actualitzar Paràmetres de Màquina (Números)
-    document.getElementById('val-c').innerText = res.gruppoC.toFixed(0);
-    document.getElementById('val-d').innerText = res.gruppoD.toFixed(0);
-    document.getElementById('val-gf').innerText = res.guidaFilo.toFixed(0);
-    document.getElementById('val-r').innerText = res.transfer.toFixed(1);
-    document.getElementById('val-pa').innerText = res.pinces.toFixed(0);
-
-    // --- AQUÍ AFGEIXEM LES IMATGES (Sincronització Base64) ---
-    if (IMAGES_DATA.folding) document.getElementById('img-machine-folding').src = IMAGES_DATA.folding;
-    if (IMAGES_DATA.guide)   document.getElementById('img-machine-guide').src = IMAGES_DATA.guide;
-    if (IMAGES_DATA.transfer) document.getElementById('img-machine-transfer').src = IMAGES_DATA.transfer;
-    if (IMAGES_DATA.pinces)   document.getElementById('img-machine-pinces').src = IMAGES_DATA.pinces;
-
-
-    // Mostrar la secció de resultats
-    document.getElementById('stirrup-results').style.display = 'block'; 
-    
-    showToast('Càlcul completat!', 'success');
+    function setLongDiameter(diam) {
+  state.longDiameter = diam;
+  document.querySelectorAll('.diam-btn-long').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
 }
+
+  function calculateStirrup() {
+    try {
+        const w = parseFloat(document.getElementById('input-width').value);
+        const h = parseFloat(document.getElementById('input-height').value);
+        const l = parseFloat(document.getElementById('input-legs').value);
+
+        if (isNaN(w) || isNaN(h) || isNaN(l)) { 
+            showToast('Introdueix tots els valors', 'error'); 
+            return; 
+        }
+
+        const f = formulas[state.diameter];
+        if (!f) {
+            showToast('Error en la fórmula del diàmetre', 'error');
+            return;
+        }
+
+        // Guardem totes les dades a l'objecte de resultats
+        const res = { 
+            w: w,
+            h: h,
+            l: l,
+            linearDev: f.linearDev(w,h,l), 
+            taglioA: f.taglioA(w,h,l), 
+            guidaFilo: f.guidaFilo(w,h,l), 
+            gruppoC: f.gruppoC(w,h,l), 
+            gruppoD: f.gruppoD(w,h,l), 
+            transfer: f.transfer(w,h,l),
+            pinces: f.pinces(w,h,l),
+            centradorL: f.centradorL(w,h,l)
+        };
+
+        // Guardar resultats a l'estat global per al PDF
+        state.stirrupResults = res;
+
+        // Definir l'idioma actual
+        const lang = state.lang || 'ca';
+        const t = translations[lang] || translations['ca'];
+
+        // Mostrar resultats a la pantalla (Capa visual)
+        document.getElementById('results-list').innerHTML = `
+            <div class="res-item"><span>${t.linearDev}:</span> <strong>${res.linearDev.toFixed(2)} mm</strong></div>
+            <div class="res-item"><span>${t.taglioA}:</span> <strong>${res.taglioA.toFixed(2)} mm</strong></div>
+            <div class="res-item"><span>${t.guidaFilo}:</span> <strong>${res.guidaFilo.toFixed(1)}</strong></div>
+            <div class="res-item"><span>${t.cvl}:</span> <strong style="color:${res.centradorL >= 0 ? 'var(--success)' : 'var(--danger)'}">${res.centradorL.toFixed(0)} mm</strong></div>
+        `;
+
+        // Actualitzar Paràmetres de Màquina (Números)
+        document.getElementById('val-c').innerText = res.gruppoC.toFixed(0);
+        document.getElementById('val-d').innerText = res.gruppoD.toFixed(0);
+        document.getElementById('val-gf').innerText = res.guidaFilo.toFixed(0);
+        document.getElementById('val-r').innerText = res.transfer.toFixed(1);
+        document.getElementById('val-pa').innerText = res.pinces.toFixed(0);
+
+        // Sincronització d'imatges
+        if (typeof IMAGES_DATA !== 'undefined') {
+            if (IMAGES_DATA.folding) document.getElementById('img-machine-folding').src = IMAGES_DATA.folding;
+            if (IMAGES_DATA.guide)   document.getElementById('img-machine-guide').src = IMAGES_DATA.guide;
+            if (IMAGES_DATA.transfer) document.getElementById('img-machine-transfer').src = IMAGES_DATA.transfer;
+            if (IMAGES_DATA.pinces)   document.getElementById('img-machine-pinces').src = IMAGES_DATA.pinces;
+        }
+
+        // Mostrar la secció de resultats
+        document.getElementById('stirrup-results').style.display = 'block'; 
+        
+        showToast('Càlcul completat!', 'success');
+
+    } catch (error) {
+        console.error("Error en calculateStirrup:", error);
+        showToast('Error intern al calcular', 'error');
+    }
+}
+
 
     function setZunxoMode(mode) {
       state.zunxoMode = mode;
@@ -572,14 +660,15 @@
       });
     }
 
-    function showToast(msg, type) {
-      const container = document.getElementById('toast-container');
-      const toast = document.createElement('div');
-      toast.className = 'toast';
-      toast.innerHTML = `<strong style="color:var(--primary)">${type === 'success' ? '✅' : '⚠️'}</strong> ${msg}`;
-      container.appendChild(toast);
-      setTimeout(() => toast.remove(), 3000);
-    }
+function showToast(msg, type) {
+  const container = document.getElementById('toast-container');
+  if (!container) return; // Evita errors si el container no existeix
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.innerHTML = `<strong style="color:var(--primary)">${type === 'success' ? '✅' : '⚠️'}</strong> ${msg}`;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
 
     function resetAll() { location.reload(); }
 
@@ -601,110 +690,6 @@
         img.src = base64String;
       });
     }
-async function exportPDF() {
-      if (!state.stirrupResults) { 
-        showToast('Calcula primer l\'estrep', 'error'); 
-        return; 
-      }
-      
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-      const t = translations[state.lang] || translations['ca'];
-      const res = state.stirrupResults || {};
-
-      try {
-        // --- CAPÇALERA ---
-        doc.setFillColor(99, 102, 241); 
-        doc.rect(0, 0, 210, 40, 'F');
-        doc.setTextColor(255, 255, 255); 
-        doc.setFontSize(22);
-        doc.text("FULL TÈCNIC DE FABRICACIÓ", 105, 20, { align: 'center' });
-        doc.setFontSize(12); 
-        doc.text(`Versió 8.0 | Data: ${new Date().toLocaleDateString()}`, 105, 30, { align: 'center' });
-
-        // --- 1. DIMENSIONS ---
-        doc.setTextColor(40, 40, 40); 
-        doc.setFontSize(16); 
-        doc.text("1. Dimensions de l'Estrep", 20, 50);
-        doc.setDrawColor(200); 
-        doc.line(20, 52, 190, 52);
-        doc.setFontSize(12);
-        doc.text(`Diàmetre del fil: Ø${state.diameter || '0'} mm`, 25, 62);
-        doc.text(`Amplada (W): ${res.w || 0} mm`, 25, 72);
-        doc.text(`Alçada (H): ${res.h || 0} mm`, 25, 82);
-        doc.text(`Potes (L): ${res.l || 0} mm`, 25, 92);
-
-        // --- 2. RESULTATS ---
-        doc.setFontSize(16); 
-        doc.text("2. Resultats de Càlcul", 20, 110);
-        doc.line(20, 112, 190, 112);
-        doc.setFontSize(12);
-        doc.text(`${t.linearDev}: ${(res.linearDev || 0).toFixed(2)} mm`, 25, 122);
-        doc.text(`${t.taglioA}: ${(res.taglioA || 0).toFixed(2)} mm`, 25, 132);
-        doc.text(`${t.guidaFilo}: ${(res.guidaFilo || 0).toFixed(1)}`, 25, 142);
-
-        // --- 3. ESQUEMA TÈCNIC ---
-        doc.setFontSize(16); 
-        doc.text("3. Esquema Tècnic", 20, 160);
-        doc.line(20, 162, 190, 162);
-        
-        if (IMAGES_DATA.estrep) {
-          // Pujem l'estrep una mica (de 170 a 165)
-          doc.addImage(IMAGES_DATA.estrep, 'PNG', 80, 165, 50, 50); 
-          doc.setTextColor(239, 68, 68); 
-          doc.setFontSize(10);
-          doc.text(`W: ${res.w || 0}mm`, 105, 162, { align: 'center' });
-          doc.text(`H: ${res.h || 0}mm`, 75, 190, { align: 'right' });
-          doc.text(`L: ${res.l || 0}mm`, 135, 190, { align: 'left' });
-        }
-
-      // --- 4. PARÀMETRES MÀQUINA (Final de la funció exportPDF) ---
-        
-              // --- 4. PARÀMETRES MÀQUINA ---
-        doc.setTextColor(40, 40, 40); 
-        doc.setFontSize(16); 
-        doc.text("4. Paràmetres de Màquina", 20, 220); 
-        doc.line(20, 222, 190, 222);
-        doc.setFontSize(11);
-
-        const sw = 40; 
-        const sh = 25; 
-        const row1Y = 230; 
-        const row2Y = 265; 
-
-        // Bloc 1: Folding (C/D)
-        if (IMAGES_DATA.folding) {
-            doc.addImage(IMAGES_DATA.folding, 'PNG', 20, row1Y, sw, sh);
-            doc.text(`C: ${res.gruppoC || 0} | D: ${res.gruppoD || 0}`, 40, row1Y + sh + 5, { align: 'center' });
-        }
-
-        // Bloc 2: Guide (GF)
-        if (IMAGES_DATA.guide) {
-            doc.addImage(IMAGES_DATA.guide, 'PNG', 90, row1Y + 5, sw, 12); 
-            doc.text(`GF: ${res.guidaFilo || 0}`, 110, row1Y + sh + 5, { align: 'center' });
-        }
-
-        // Bloc 3: Transfer (R/L)
-        if (IMAGES_DATA.transfer) {
-            doc.addImage(IMAGES_DATA.transfer, 'PNG', 20, row2Y, sw, sh/1.5);
-            doc.text(`R/L: ${res.transfer || 0}`, 40, row2Y + sh/1.5 + 5, { align: 'center' });
-        }
-
-        // Bloc 4: Pinces (PA)
-        if (IMAGES_DATA.pinces) {
-            doc.addImage(IMAGES_DATA.pinces, 'PNG', 90, row2Y, sw, sh/1.5);
-            doc.text(`Pinces: ${(res.w || 0) + 20}`, 110, row2Y + sh/1.5 + 5, { align: 'center' });
-        }
-
-        doc.save(`Report_Estrep_${res.w || 'X'}x${res.h || 'X'}.pdf`);
-        showToast('PDF professional generat!', 'success');
-
-
-      } catch (globalError) {
-        console.error("Error critical generant PDF:", globalError);
-        showToast('Error en la generació del PDF', 'error');
-      }
-    } 
     // =========================================================================
     // LÒGICA DEL TECLAT NUMÈRIC VIRTUAL
     // =========================================================================
@@ -743,10 +728,13 @@ document.addEventListener('focusin', (e) => {
             keyboard.classList.add('active');
         }
     }
-});
+}); 
+</script> 
+<script src="pdf_data.js"></script>
+<script src="pdf-manager.js"></script>
 
+ <script src="pdf-manager.js"></script>
 
-  </script> <!-- EL SCRIPT S'HA DE TANCAR DESPRÉS DE TOT EL CODIGO JS -->
 
   <!-- TECLAT NUMÈRIC VIRTUAL (HTML) -->
   <div id="virtual-keyboard" class="virtual-keyboard">
